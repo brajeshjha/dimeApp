@@ -43,6 +43,28 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "02F4576A2F51D70900A4A3B3"
+               BuildableName = "dimeTests.xctest"
+               BlueprintName = "dimeTests"
+               ReferencedContainer = "container:dime.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "02F4578F2F51D72700A4A3B3"
+               BuildableName = "dimeUITests.xctest"
+               BlueprintName = "dimeUITests"
+               ReferencedContainer = "container:dime.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

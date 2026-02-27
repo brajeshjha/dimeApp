@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+          xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+          xmlns:x="urn:schemas-microsoft-com:office:excel"
+          xmlns:o="urn:schemas-microsoft-com:office:office">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Title>Bank Statement</Title>
+  <Author>First National Bank</Author>
+  <Created>2024-01-31T00:00:00Z</Created>
+ </DocumentProperties>
+ <Styles>
+  <Style ss:ID="sHeader">
+   <Font ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11" ss:FontName="Arial"/>
+   <Interior ss:Color="#2F5496" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+  </Style>
+  <Style ss:ID="sData">
+   <Font ss:Size="10" ss:FontName="Arial"/>
+  </Style>
+  <Style ss:ID="sTotal">
+   <Font ss:Bold="1" ss:Color="#FFFFFF" ss:Size="10" ss:FontName="Arial"/>
+   <Interior ss:Color="#2F5496" ss:Pattern="Solid"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Bank Statement">
+  <Table>
+   <Row>
+    <Cell ss:MergeAcross="6" ss:StyleID="sHeader">
+     <Data ss:Type="String">FIRST NATIONAL BANK — Account Statement</Data>
+    </Cell>
+   </Row>
+   <Row>
+    <Cell ss:MergeAcross="6">
+     <Data ss:Type="String">Account Number: ****-****-1234    Period: 01 Jan 2024 – 31 Jan 2024</Data>
+    </Cell>
+   </Row>
+   <Row/>
+   <Row>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Date</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Transaction ID</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Description</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Debit (USD)</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Credit (USD)</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Balance (USD)</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Category</Data></Cell>
+   </Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">01/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0001</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Opening Balance</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">5000.00</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Balance</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">02/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0002</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Tesco Groceries</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">45.20</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">4954.80</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">03/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0003</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Monthly Salary</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">3200.00</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">8154.80</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">04/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0004</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Netflix Subscription</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">15.99</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">8138.81</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">05/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0005</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Freelance Payment</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">750.00</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">8888.81</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">06/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0006</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Electricity Bill</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">87.50</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">8801.31</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">07/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0007</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Amazon Purchase</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">129.99</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">8671.32</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">08/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0008</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Gym Membership</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">49.99</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">8621.33</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">09/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0009</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Bonus Payment</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">500.00</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">9121.33</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">10/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0010</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Starbucks Coffee</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">5.40</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">9115.93</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">11/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0011</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Rent Payment</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">1200.00</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">7915.93</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">12/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0012</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uber Ride</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">12.50</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">7903.43</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">13/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0013</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Interest Credit</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">18.25</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">7921.68</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">14/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0014</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">ATM Withdrawal</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">200.00</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">7721.68</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sData"><Data ss:Type="String">15/01/2024</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">TXN-0015</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Insurance Premium</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">95.00</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="Number">7626.68</Data></Cell><Cell ss:StyleID="sData"><Data ss:Type="String">Uncategorized</Data></Cell></Row>
+   <Row>
+    <Cell ss:StyleID="sTotal"><Data ss:Type="String"></Data></Cell>
+    <Cell ss:StyleID="sTotal"><Data ss:Type="String"></Data></Cell>
+    <Cell ss:StyleID="sTotal"><Data ss:Type="String">TOTALS</Data></Cell>
+    <Cell ss:StyleID="sTotal"><Data ss:Type="Number">1841.57</Data></Cell>
+    <Cell ss:StyleID="sTotal"><Data ss:Type="Number">4468.25</Data></Cell>
+    <Cell ss:StyleID="sTotal"><Data ss:Type="String"></Data></Cell>
+    <Cell ss:StyleID="sTotal"><Data ss:Type="String"></Data></Cell>
+   </Row>
+  </Table>
+ </Worksheet>
+ <Worksheet ss:Name="Invoice">
+  <Table>
+   <Row>
+    <Cell><Data ss:Type="String">Invoice Number:</Data></Cell>
+    <Cell><Data ss:Type="String">INV-2024-001</Data></Cell>
+    <Cell><Data ss:Type="String">Date:</Data></Cell>
+    <Cell><Data ss:Type="String">05/01/2024</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Vendor:</Data></Cell>
+    <Cell><Data ss:Type="String">ACME Corp Ltd</Data></Cell>
+    <Cell><Data ss:Type="String">Due Date:</Data></Cell>
+    <Cell><Data ss:Type="String">20/01/2024</Data></Cell>
+   </Row>
+   <Row/>
+   <Row>
+    <Cell><Data ss:Type="String">Description</Data></Cell>
+    <Cell><Data ss:Type="String">Qty</Data></Cell>
+    <Cell><Data ss:Type="String">Unit Price</Data></Cell>
+    <Cell><Data ss:Type="String">Total</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Software License</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell><Data ss:Type="Number">200.00</Data></Cell>
+    <Cell><Data ss:Type="Number">200.00</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Support Package</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell><Data ss:Type="Number">50.00</Data></Cell>
+    <Cell><Data ss:Type="Number">50.00</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String">Amount Due</Data></Cell>
+    <Cell><Data ss:Type="Number">250.00</Data></Cell>
+   </Row>
+  </Table>
+ </Worksheet>
+</Workbook>

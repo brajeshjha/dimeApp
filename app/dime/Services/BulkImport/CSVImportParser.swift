@@ -143,8 +143,11 @@ final class CSVImportParser {
 
     /// Resolves a cell's display value, handling shared-string indices and inline strings.
     private func cellStringValue(_ cell: Cell, sharedStrings: SharedStrings?) -> String {
+        // 1. Try shared strings first (most common for files with shared string table)
         if let ss = sharedStrings, let v = cell.stringValue(ss) { return v }
-        // Numeric / date cells store their value in `cell.value`
+        // 2. Try inline strings (used by test fixtures and some Excel files)
+        if let inlineStr = cell.inlineString?.text { return inlineStr }
+        // 3. Fall back to numeric/date cells which store their value in `cell.value`
         return cell.value ?? ""
     }
 
@@ -180,7 +183,13 @@ final class CSVImportParser {
             }
         }
 
-        // Step 2: Try reading as tab-separated or comma-separated plain text
+        // Step 2: Try SpreadsheetML XML format (Microsoft Excel XML)
+        let xmlResult = try? parseSpreadsheetML(url: url)
+        if let txns = xmlResult, !txns.isEmpty {
+            return txns
+        }
+
+        // Step 3: Try reading as tab-separated or comma-separated plain text
         //         (Excel "Save As .xls" from older versions often produces TSV/HTML)
         let textResult = try? parseXLSAsText(url: url)
         if let txns = textResult, !txns.isEmpty {
@@ -256,6 +265,52 @@ final class CSVImportParser {
             .replacingOccurrences(of: "&#39;",  with: "'")
             .replacingOccurrences(of: "&quot;", with: "\"")
         return result
+    }
+
+    /// Parses Microsoft Excel SpreadsheetML XML format (.xls files saved as XML).
+    /// This handles the legacy XML format with <Workbook>, <Worksheet>, <Table>, <Row>, <Cell> structure.
+    private func parseSpreadsheetML(url: URL) throws -> [ImportedTransaction] {
+        guard let data = try? Data(contentsOf: url),
+              let xmlString = String(data: data, encoding: .utf8) else {
+            throw ImportError.unreadableFile
+        }
+        
+        // Quick check if this is SpreadsheetML format
+        guard xmlString.contains("urn:schemas-microsoft-com:office:spreadsheet") else {
+            return []
+        }
+        
+        let parser = SpreadsheetMLParser()
+        guard let rows = parser.parse(xmlString: xmlString), !rows.isEmpty else {
+            return []
+        }
+        
+        // Find the header row - look for a row containing typical column names
+        let headerKeywords = ["date", "description", "amount", "debit", "credit", 
+                              "transaction", "merchant", "vendor", "balance"]
+        var headerIndex: Int?
+        
+        for (i, row) in rows.enumerated() {
+            let rowLower = row.map { $0.lowercased() }
+            let matchCount = rowLower.filter { cell in
+                headerKeywords.contains { cell.contains($0) }
+            }.count
+            
+            // If at least 2 columns match header keywords, consider this the header row
+            if matchCount >= 2 {
+                headerIndex = i
+                break
+            }
+        }
+        
+        guard let headerIdx = headerIndex, headerIdx < rows.count - 1 else {
+            return []
+        }
+        
+        let headers = rows[headerIdx].map { $0.lowercased() }
+        let dataRows = Array(rows[(headerIdx + 1)...])
+        
+        return buildTransactions(headers: headers, dataRows: dataRows)
     }
 
     // MARK: - Invoice vs. Statement detection
@@ -483,5 +538,65 @@ final class CSVImportParser {
             if let d = fmt.date(from: cleaned) { return d }
         }
         return nil
+    }
+}
+
+// MARK: - SpreadsheetML XML Parser
+
+/// Parses Microsoft Excel SpreadsheetML XML format using XMLParser.
+/// This is a SAX-style parser that extracts rows and cells from the XML structure.
+private class SpreadsheetMLParser: NSObject, XMLParserDelegate {
+    private var rows: [[String]] = []
+    private var currentRow: [String] = []
+    private var currentCellData: String = ""
+    private var isInCell = false
+    private var isInData = false
+    
+    func parse(xmlString: String) -> [[String]]? {
+        guard let data = xmlString.data(using: .utf8) else { return nil }
+        let parser = XMLParser(data: data)
+        parser.delegate = self
+        guard parser.parse() else { return nil }
+        return rows
+    }
+    
+    func parser(_ parser: XMLParser, didStartElement elementName: String,
+                namespaceURI: String?, qualifiedName qName: String?,
+                attributes attributeDict: [String: String] = [:]) {
+        switch elementName {
+        case "Row":
+            currentRow = []
+        case "Cell":
+            isInCell = true
+            currentCellData = ""
+        case "Data":
+            isInData = true
+        default:
+            break
+        }
+    }
+    
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        if isInData {
+            currentCellData += string
+        }
+    }
+    
+    func parser(_ parser: XMLParser, didEndElement elementName: String,
+                namespaceURI: String?, qualifiedName qName: String?) {
+        switch elementName {
+        case "Row":
+            // Only add non-empty rows
+            if !currentRow.isEmpty {
+                rows.append(currentRow)
+            }
+        case "Cell":
+            currentRow.append(currentCellData.trimmingCharacters(in: .whitespacesAndNewlines))
+            isInCell = false
+        case "Data":
+            isInData = false
+        default:
+            break
+        }
     }
 }

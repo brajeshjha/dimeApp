@@ -1486,7 +1486,7 @@
 				CODE_SIGN_ENTITLEMENTS = dime/dime.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"dime/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "dime/Preview\\ Content dimeTests/Resources";
 				DEVELOPMENT_TEAM = 5UNNTHMF44;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1527,7 +1527,7 @@
 				CODE_SIGN_ENTITLEMENTS = dime/dime.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"dime/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "dime/Preview\\ Content dimeTests/Resources";
 				DEVELOPMENT_TEAM = 5UNNTHMF44;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;

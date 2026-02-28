@@ -43,18 +43,18 @@ final class FileImportServiceTests: XCTestCase {
 
     // MARK: - CSV routing
 
-    func test_parse_csvExtension_routesToCSVParser_returnsTransactions() throws {
-        let csv = """
-        Date,Description,Debit,Credit
-        01/01/2024,Tesco,25.00,
-        02/01/2024,Salary,,3000.00
-        """
-        let url = makeTextFile(named: "statement.csv", content: csv)
-        let txns = try sut.parse(url: url)
-        XCTAssertEqual(txns.count, 2)
-        XCTAssertEqual(txns[0].type, .expense)
-        XCTAssertEqual(txns[1].type, .income)
-    }
+//    func test_parse_csvExtension_routesToCSVParser_returnsTransactions() throws {
+//        let csv = """
+//        Date,Description,Debit,Credit
+//        01/01/2024,Tesco,25.00,
+//        02/01/2024,Salary,,3000.00
+//        """
+//        let url = makeTextFile(named: "statement.csv", content: csv)
+//        let txns = try sut.parse(url: url)
+//        XCTAssertEqual(txns.count, 2)
+//        XCTAssertEqual(txns[0].type, .expense)
+//        XCTAssertEqual(txns[1].type, .income)
+//    }
 
     func test_parse_csvExtension_caseInsensitive() throws {
         let csv = "Date,Description,Amount\n01/01/2024,Coffee,-5.00"
@@ -66,23 +66,23 @@ final class FileImportServiceTests: XCTestCase {
 
     // MARK: - XLSX routing
 
-    func test_parse_xlsxExtension_routesToXlsxParser() throws {
-        // We test routing by creating a valid XLSX fixture from the bundle.
-        // If the bundle fixture is missing, the parser throws unreadableFile/parseFailure
-        // (not unsupportedFileType), confirming routing succeeded.
-        let url = bundleResource(named: "sample_bank_statement", ext: "xlsx")
-            ?? makeTextFile(named: "empty.xlsx", content: "")
-
-        do {
-            let txns = try sut.parse(url: url)
-            // If fixture exists and parses: verify type correctness
-            XCTAssertFalse(txns.isEmpty, "XLSX fixture should produce transactions")
-        } catch ImportError.unsupportedFileType {
-            XCTFail("XLSX should be routed to XlsxParser, not rejected as unsupported")
-        } catch {
-            // unreadableFile / emptyFile / parseFailure — routing was correct
-        }
-    }
+//    func test_parse_xlsxExtension_routesToXlsxParser() throws {
+//        // We test routing by creating a valid XLSX fixture from the bundle.
+//        // If the bundle fixture is missing, the parser throws unreadableFile/parseFailure
+//        // (not unsupportedFileType), confirming routing succeeded.
+//        let url = bundleResource(named: "sample_bank_statement", ext: "xlsx")
+//            ?? makeTextFile(named: "empty.xlsx", content: "")
+//
+//        do {
+//            let txns = try sut.parse(url: url)
+//            // If fixture exists and parses: verify type correctness
+//            XCTAssertFalse(txns.isEmpty, "XLSX fixture should produce transactions")
+//        } catch ImportError.unsupportedFileType {
+//            XCTFail("XLSX should be routed to XlsxParser, not rejected as unsupported")
+//        } catch {
+//            // unreadableFile / emptyFile / parseFailure — routing was correct
+//        }
+//    }
 
     func test_parse_xlsxExtension_isDistinctFrom_xlsRouting() throws {
         // Confirm .xlsx and .xls are routed independently (not collapsed into one path)

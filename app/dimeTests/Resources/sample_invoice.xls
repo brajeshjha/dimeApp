@@ -1,0 +1,6 @@
+Invoice Number	Vendor	Invoice Date	Item Description	Qty	Unit Price	Total
+INV-2024-001	ACME Corp	05/01/2024	Software License - Enterprise	1	200.00	200.00
+INV-2024-001	ACME Corp	05/01/2024	Support Package - Annual	1	50.00	50.00
+					Subtotal	250.00
+					Tax (0%)	0.00
+					Grand Total	250.00

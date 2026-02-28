@@ -9,6 +9,7 @@ import Combine
 import Foundation
 import Popovers
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct TransactionView: View {
     @FetchRequest(sortDescriptors: [], predicate: NSPredicate(format: "income = %d", false)) private
@@ -223,6 +224,17 @@ struct TransactionView: View {
     @State var isEditingDecimal = false
     @State var decimalValuesAssigned: AssignedDecimal = .none
     @State private var priceString: String = "0"
+    
+    // File import states
+    @State private var showFileImporter = false
+    @State private var showImportReview = false
+    @State private var importedTransactions: [ImportedTransaction] = []
+    @State private var showImportError = false
+    @State private var importErrorMessage = ""
+    @State private var isProcessingFile = false
+    @State private var showMoreMenu = false
+
+    private let fileImportService = FileImportService()
 
     var body: some View {
         GeometryReader { proxy in
@@ -331,56 +343,98 @@ struct TransactionView: View {
                                     .contentShape(Circle())
                             }
                             .accessibilityLabel("delete transaction")
-                        }
-
-                        Button {
-                            showRecurring = true
-                        } label: {
-                            if repeatType > 0 {
-                                Image(systemName: "repeat")
+                            
+                            Button {
+                                showRecurring = true
+                            } label: {
+                                if repeatType > 0 {
+                                    Image(systemName: "repeat")
+                                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+                                        .overlay(alignment: .topTrailing) {
+                                            Text(repeatOverlays[repeatType - 1])
+                                                .font(.system(size: 6, weight: .black, design: .rounded))
+                                                .foregroundColor(Color.IncomeGreen)
+                                                .frame(width: 10, alignment: .leading)
+                                                .offset(x: 5.7, y: 1.5)
+                                        }
+                                        .foregroundColor(Color.IncomeGreen)
+                                        .padding(7)
+                                        .background(Color.IncomeGreen.opacity(0.23), in: Circle())
+                                        .contentShape(Circle())
+                                } else {
+                                    Image(systemName: "repeat")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(Color.SubtitleText)
+                                        .padding(7)
+                                        .background(Color.SecondaryBackground, in: Circle())
+                                        .contentShape(Circle())
+                                }
+                            }
+                            .accessibilityRemoveTraits(.isButton)
+                            .accessibilityLabel(repeatButtonAccessibility)
+                            .popover(
+                                present: $showRecurring,
+                                attributes: {
+                                    $0.position = .absolute(
+                                        originAnchor: .bottom,
+                                        popoverAnchor: .top
+                                    )
+                                    $0.rubberBandingMode = .none
+                                    $0.sourceFrameInset = UIEdgeInsets(top: 0, left: 0, bottom: -10, right: 0)
+                                    $0.presentation.animation = .easeInOut(duration: 0.2)
+                                    $0.dismissal.animation = .easeInOut(duration: 0.3)
+                                }
+                            ) {
+                                RecurringPickerView(
+                                    repeatType: $repeatType, repeatCoefficient: $repeatCoefficient,
+                                    showMenu: $showRecurring, showPicker: $showPicker)
+                            } background: {
+                                backgroundColor.opacity(0.6)
+                            }
+                        } else {
+                            // When not editing, show menu with import and recurring options
+                            Menu {
+                                Button {
+                                    showFileImporter = true
+                                } label: {
+                                    Label("Import from File", systemImage: "square.and.arrow.down")
+                                }
+                                
+                                Button {
+                                    showRecurring = true
+                                } label: {
+                                    Label("Set Recurring", systemImage: "repeat")
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis.circle.fill")
                                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                                     .dynamicTypeSize(...DynamicTypeSize.xxLarge)
-                                //                                    .font(.system(size: 16, weight: .semibold))
-                                    .overlay(alignment: .topTrailing) {
-                                        Text(repeatOverlays[repeatType - 1])
-                                            .font(.system(size: 6, weight: .black, design: .rounded))
-                                            .foregroundColor(Color.IncomeGreen)
-                                            .frame(width: 10, alignment: .leading)
-                                            .offset(x: 5.7, y: 1.5)
-                                    }
-                                    .foregroundColor(Color.IncomeGreen)
-                                    .padding(7)
-                                    .background(Color.IncomeGreen.opacity(0.23), in: Circle())
-                                    .contentShape(Circle())
-                            } else {
-                                Image(systemName: "repeat")
-                                    .font(.system(size: 16, weight: .semibold))
                                     .foregroundColor(Color.SubtitleText)
                                     .padding(7)
                                     .background(Color.SecondaryBackground, in: Circle())
                                     .contentShape(Circle())
                             }
-                        }
-                        .accessibilityRemoveTraits(.isButton)
-                        .accessibilityLabel(repeatButtonAccessibility)
-                        .popover(
-                            present: $showRecurring,
-                            attributes: {
-                                $0.position = .absolute(
-                                    originAnchor: .bottom,
-                                    popoverAnchor: .top
-                                )
-                                $0.rubberBandingMode = .none
-                                $0.sourceFrameInset = UIEdgeInsets(top: 0, left: 0, bottom: -10, right: 0)
-                                $0.presentation.animation = .easeInOut(duration: 0.2)
-                                $0.dismissal.animation = .easeInOut(duration: 0.3)
+                            .accessibilityLabel("more options")
+                            .popover(
+                                present: $showRecurring,
+                                attributes: {
+                                    $0.position = .absolute(
+                                        originAnchor: .bottom,
+                                        popoverAnchor: .top
+                                    )
+                                    $0.rubberBandingMode = .none
+                                    $0.sourceFrameInset = UIEdgeInsets(top: 0, left: 0, bottom: -10, right: 0)
+                                    $0.presentation.animation = .easeInOut(duration: 0.2)
+                                    $0.dismissal.animation = .easeInOut(duration: 0.3)
+                                }
+                            ) {
+                                RecurringPickerView(
+                                    repeatType: $repeatType, repeatCoefficient: $repeatCoefficient,
+                                    showMenu: $showRecurring, showPicker: $showPicker)
+                            } background: {
+                                backgroundColor.opacity(0.6)
                             }
-                        ) {
-                            RecurringPickerView(
-                                repeatType: $repeatType, repeatCoefficient: $repeatCoefficient,
-                                showMenu: $showRecurring, showPicker: $showPicker)
-                        } background: {
-                            backgroundColor.opacity(0.6)
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -920,6 +974,24 @@ struct TransactionView: View {
                     repeatType: $repeatType, repeatCoefficient: $repeatCoefficient, showPicker: $showPicker)
             }
         }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.commaSeparatedText, .pdf, .spreadsheet],
+            allowsMultipleSelection: false
+        ) { result in
+            handleFileImport(result: result)
+        }
+        .sheet(isPresented: $showImportReview) {
+            ImportReviewView(importedTransactions: importedTransactions) {
+                // Refresh or notify after import
+            }
+            .environmentObject(dataController)
+        }
+        .alert("Import Error", isPresented: $showImportError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(importErrorMessage)
+        }
         .onChange(of: dynamicTypeSize) { _ in
             if income {
                 swipingOffset = capsuleWidth
@@ -1100,6 +1172,46 @@ struct TransactionView: View {
         try? moc.save()
 
         dismiss()
+    }
+    
+    func handleFileImport(result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+
+            isProcessingFile = true
+
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let transactions = try fileImportService.parse(url: url)
+                    DispatchQueue.main.async {
+                        isProcessingFile = false
+                        if transactions.isEmpty {
+                            importErrorMessage = "No transactions were found in the file."
+                            showImportError = true
+                        } else {
+                            importedTransactions = transactions
+                            showImportReview = true
+                        }
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        isProcessingFile = false
+                        if let localizedError = error as? LocalizedError,
+                           let description = localizedError.errorDescription {
+                            importErrorMessage = description
+                        } else {
+                            importErrorMessage = error.localizedDescription
+                        }
+                        showImportError = true
+                    }
+                }
+            }
+
+        case .failure(let error):
+            importErrorMessage = "Failed to access file: \(error.localizedDescription)"
+            showImportError = true
+        }
     }
 
     init(toEdit: Transaction? = nil) {

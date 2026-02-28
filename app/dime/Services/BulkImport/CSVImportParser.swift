@@ -126,19 +126,41 @@ final class CSVImportParser {
         let sharedStrings = try? file.parseSharedStrings()
 
         let rows = ws.data?.rows ?? []
-        guard rows.count > 1 else { throw ImportError.emptyFile }
+        guard !rows.isEmpty else { throw ImportError.emptyFile }
 
-        // Row index 0 → column headers
-        let headers = rows[0].cells.map { cell -> String in
-            cellStringValue(cell, sharedStrings: sharedStrings).lowercased()
-        }
-
-        let dataRows = rows.dropFirst().map { row in
+        // Convert rows to string arrays for easier processing
+        let allRows = rows.map { row in
             row.cells.map { cellStringValue($0, sharedStrings: sharedStrings) }
         }
 
+        // Find the header row - look for a row containing typical column names
+        let headerKeywords = ["date", "description", "amount", "debit", "credit",
+                              "transaction", "merchant", "vendor", "balance", "invoice",
+                              "total", "item", "qty", "quantity", "price"]
+        var headerIndex: Int?
+
+        for (i, row) in allRows.enumerated() {
+            let rowLower = row.map { $0.lowercased() }
+            let matchCount = rowLower.filter { cell in
+                headerKeywords.contains { cell.contains($0) }
+            }.count
+
+            // If at least 2 columns match header keywords, consider this the header row
+            if matchCount >= 2 {
+                headerIndex = i
+                break
+            }
+        }
+
+        guard let headerIdx = headerIndex, headerIdx < allRows.count - 1 else {
+            throw ImportError.emptyFile
+        }
+
+        let headers = allRows[headerIdx].map { $0.lowercased() }
+        let dataRows = Array(allRows[(headerIdx + 1)...])
+
         // Invoice-aware dispatcher: returns either one invoice expense or many bank rows
-        return buildTransactions(headers: headers, dataRows: Array(dataRows))
+        return buildTransactions(headers: headers, dataRows: dataRows)
     }
 
     /// Resolves a cell's display value, handling shared-string indices and inline strings.

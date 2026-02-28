@@ -125,16 +125,6 @@ final class CSVImportParserTests: XCTestCase {
         XCTAssertEqual(txns[0].type, .income)
     }
 
-//    func test_csv_allTransactionsAreUncategorized() throws {
-//        let csv = """
-//        Date,Description,Amount
-//        01/01/2024,Tesco,-25.00
-//        02/01/2024,Salary,3000.00
-//        03/01/2024,Netflix,-15.99
-//        """
-//        let txns = try parseCSV(csv)
-//        XCTAssertTrue(txns.allSatisfy { $0.category == "Uncategorized" })
-//    }
 
     // =========================================================================
     // MARK: - XLSX Tests
@@ -143,105 +133,6 @@ final class CSVImportParserTests: XCTestCase {
     // The fixture is created by XLSXTestFixtureBuilder (see helper below) if missing,
     // or can be hand-crafted in Excel / Numbers and added to dimeTests/Resources/.
 
-//    func test_xlsx_bundleFixture_returnsTransactions() throws {
-//        guard let url = bundleResource(named: "sample_bank_statement", ext: "xlsx") else {
-//            // If the fixture isn't in the bundle yet, generate a synthetic one
-//            let url = try XLSXTestFixtureBuilder.makeSampleXLSX()
-//            let txns = try sut.parse(url: url, fileType: .xlsx)
-//            XCTAssertFalse(txns.isEmpty, "XLSX fixture should produce at least one transaction")
-//            return
-//        }
-//        let txns = try sut.parse(url: url, fileType: .xlsx)
-//        XCTAssertFalse(txns.isEmpty)
-//    }
-
-//    func test_xlsx_debitRows_areExpenses() throws {
-//        let url = try XLSXTestFixtureBuilder.makeSampleXLSX(rows: [
-//            ["Date",       "Description", "Debit",  "Credit"],
-//            ["01/01/2024", "Tesco",       "42.50",  ""],
-//            ["02/01/2024", "Salary",      "",        "3000.00"]
-//        ])
-//        let txns = try sut.parse(url: url, fileType: .xlsx)
-//        XCTAssertFalse(txns.isEmpty)
-//        // At least the expense row must appear
-//        let expenses = txns.filter { $0.type == .expense }
-//        XCTAssertFalse(expenses.isEmpty)
-//        XCTAssertEqual(expenses.first?.title, "Tesco")
-//    }
-
-//    func test_xlsx_creditRows_areIncome() throws {
-//        let url = try XLSXTestFixtureBuilder.makeSampleXLSX(rows: [
-//            ["Date",       "Description", "Debit", "Credit"],
-//            ["02/01/2024", "Salary",      "",       "3000.00"]
-//        ])
-//        let txns = try sut.parse(url: url, fileType: .xlsx)
-//        XCTAssertFalse(txns.isEmpty)
-//        XCTAssertEqual(txns[0].type, .income)
-//        XCTAssertEqual(txns[0].amount, 3000, accuracy: 0.01)
-//    }
-
-//    func test_xlsx_negativeAmount_treatedAsExpense() throws {
-//        let url = try XLSXTestFixtureBuilder.makeSampleXLSX(rows: [
-//            ["Date",       "Description", "Amount"],
-//            ["03/01/2024", "Rent",        "-1200.00"]
-//        ])
-//        let txns = try sut.parse(url: url, fileType: .xlsx)
-//        XCTAssertFalse(txns.isEmpty)
-//        XCTAssertEqual(txns[0].type, .expense)
-//        XCTAssertEqual(txns[0].amount, 1200, accuracy: 0.01)
-//    }
-
-//    func test_xlsx_positiveAmount_treatedAsIncome() throws {
-//        let url = try XLSXTestFixtureBuilder.makeSampleXLSX(rows: [
-//            ["Date",       "Description", "Amount"],
-//            ["04/01/2024", "Dividend",    "250.00"]
-//        ])
-//        let txns = try sut.parse(url: url, fileType: .xlsx)
-//        XCTAssertFalse(txns.isEmpty)
-//        XCTAssertEqual(txns[0].type, .income)
-//    }
-
-//    func test_xlsx_headerOnly_throwsEmptyError() throws {
-//        let url = try XLSXTestFixtureBuilder.makeSampleXLSX(rows: [
-//            ["Date", "Description", "Amount"]
-//        ])
-//        XCTAssertThrowsError(try sut.parse(url: url, fileType: .xlsx)) { error in
-//            guard case ImportError.emptyFile = error else {
-//                return XCTFail("Expected emptyFile, got \(error)")
-//            }
-//        }
-//    }
-
-//    func test_xlsx_rowMissingAmount_isSkipped() throws {
-//        let url = try XLSXTestFixtureBuilder.makeSampleXLSX(rows: [
-//            ["Date",       "Description",    "Debit", "Credit"],
-//            ["01/01/2024", "No Amount Row",  "",       ""],
-//            ["02/01/2024", "Valid Row",       "20.00", ""]
-//        ])
-//        let txns = try sut.parse(url: url, fileType: .xlsx)
-//        XCTAssertEqual(txns.count, 1)
-//        XCTAssertEqual(txns[0].title, "Valid Row")
-//    }
-
-//    func test_xlsx_allTransactionsAreUncategorized() throws {
-//        let url = try XLSXTestFixtureBuilder.makeSampleXLSX(rows: [
-//            ["Date",       "Description", "Amount"],
-//            ["01/01/2024", "Tesco",       "-25.00"],
-//            ["02/01/2024", "Salary",      "3000.00"]
-//        ])
-//        let txns = try sut.parse(url: url, fileType: .xlsx)
-//        XCTAssertTrue(txns.allSatisfy { $0.category == "Uncategorized" })
-//    }
-
-//    func test_xlsx_currencySymbolInAmount_stripped() throws {
-//        let url = try XLSXTestFixtureBuilder.makeSampleXLSX(rows: [
-//            ["Date",       "Description", "Debit"],
-//            ["05/01/2024", "Utilities",   "$87.50"]
-//        ])
-//        let txns = try sut.parse(url: url, fileType: .xlsx)
-//        XCTAssertFalse(txns.isEmpty)
-//        XCTAssertEqual(txns[0].amount, 87.50, accuracy: 0.01)
-//    }
 
     func test_xlsx_multipleSheets_firstSheetUsed() throws {
         // XLSXTestFixtureBuilder creates a single-sheet file; verify the first sheet is parsed
@@ -308,11 +199,6 @@ final class CSVImportParserTests: XCTestCase {
         XCTAssertEqual(txns[0].category, "Uncategorized")
     }
 
-//    func test_xls_tsv_allTransactionsAreUncategorized() throws {
-//        let tsv = "Date\tDescription\tAmount\n01/01/2024\tTesco\t-25.00\n02/01/2024\tSalary\t3000.00"
-//        let txns = try parseXLS(tsv)
-//        XCTAssertTrue(txns.allSatisfy { $0.category == "Uncategorized" })
-//    }
 
     func test_xls_tsv_rowMissingAmount_isSkipped() throws {
         let tsv = "Date\tDescription\tDebit\tCredit\n01/01/2024\tNo Amount\t\t\n02/01/2024\tValid\t20.00\t"
@@ -452,14 +338,6 @@ final class CSVImportParserTests: XCTestCase {
         XCTAssertEqual(txns.first?.type, .expense)
     }
 
-//    func test_xlsx_invoice_amountExtractedCorrectly() throws {
-//        let url = try XLSXTestFixtureBuilder.makeSampleXLSX(rows: [
-//            ["Invoice Number", "Vendor",  "Date",       "Amount Due"],
-//            ["INV-002",        "Shopify", "10/01/2024", "399.00"]
-//        ])
-//        let txns = try sut.parse(url: url, fileType: .xlsx)
-//        XCTAssertEqual(txns.first?.amount ?? 0, 399.00, accuracy: 0.01)
-//    }
 
     func test_xlsx_invoice_vendorExtractedFromVendorColumn() throws {
         let url = try XLSXTestFixtureBuilder.makeSampleXLSX(rows: [

@@ -6,9 +6,12 @@
 //
 
 import Combine
+import CoreData
 import Foundation
+import PDFKit
 import Popovers
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct TransactionView: View {
     @FetchRequest(sortDescriptors: [], predicate: NSPredicate(format: "income = %d", false)) private
@@ -59,6 +62,10 @@ struct TransactionView: View {
     @State var showToast = false
     @State var toastTitle = ""
     @State var toastImage = ""
+
+    @State private var showFileImporter = false
+    @State private var showImportReview = false
+    @State private var importedTransactions: [ImportedTransaction] = []
 
     // shaking category error
     @State var categoryButtonTextColor = Color.SubtitleText
@@ -315,54 +322,37 @@ struct TransactionView: View {
 
                         Spacer()
 
-                        if toEdit != nil {
+                        Menu {
                             Button {
-                                toDelete = toEdit
-                                deleteMode = true
-
+                                showFileImporter = true
                             } label: {
-                                Image(systemName: "trash.fill")
-                                //                                    .font(.system(size: 16, weight: .semibold))
-                                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                                    .dynamicTypeSize(...DynamicTypeSize.xxLarge)
-                                    .foregroundColor(Color.AlertRed)
-                                    .padding(7)
-                                    .background(Color.AlertRed.opacity(0.23), in: Circle())
-                                    .contentShape(Circle())
+                                Label("Upload File", systemImage: "square.and.arrow.up")
                             }
-                            .accessibilityLabel("delete transaction")
-                        }
 
-                        Button {
-                            showRecurring = true
-                        } label: {
-                            if repeatType > 0 {
-                                Image(systemName: "repeat")
-                                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                                    .dynamicTypeSize(...DynamicTypeSize.xxLarge)
-                                //                                    .font(.system(size: 16, weight: .semibold))
-                                    .overlay(alignment: .topTrailing) {
-                                        Text(repeatOverlays[repeatType - 1])
-                                            .font(.system(size: 6, weight: .black, design: .rounded))
-                                            .foregroundColor(Color.IncomeGreen)
-                                            .frame(width: 10, alignment: .leading)
-                                            .offset(x: 5.7, y: 1.5)
-                                    }
-                                    .foregroundColor(Color.IncomeGreen)
-                                    .padding(7)
-                                    .background(Color.IncomeGreen.opacity(0.23), in: Circle())
-                                    .contentShape(Circle())
-                            } else {
-                                Image(systemName: "repeat")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(Color.SubtitleText)
-                                    .padding(7)
-                                    .background(Color.SecondaryBackground, in: Circle())
-                                    .contentShape(Circle())
+                            Button {
+                                showRecurring = true
+                            } label: {
+                                Label(repeatType > 0 ? "Edit Recurring" : "Make Recurring", systemImage: "repeat")
                             }
+
+                            if toEdit != nil {
+                                Button(role: .destructive) {
+                                    toDelete = toEdit
+                                    deleteMode = true
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+                                .foregroundColor(Color.SubtitleText)
+                                .padding(7)
+                                .background(Color.SecondaryBackground, in: Circle())
+                                .contentShape(Circle())
                         }
-                        .accessibilityRemoveTraits(.isButton)
-                        .accessibilityLabel(repeatButtonAccessibility)
+                        .accessibilityLabel("More options")
                         .popover(
                             present: $showRecurring,
                             attributes: {
@@ -920,6 +910,20 @@ struct TransactionView: View {
                     repeatType: $repeatType, repeatCoefficient: $repeatCoefficient, showPicker: $showPicker)
             }
         }
+        .sheet(isPresented: $showImportReview) {
+            if #available(iOS 16.0, *) {
+                ImportReviewSheet(transactions: importedTransactions, currencySymbol: currencySymbol)
+                    .presentationDetents([.medium, .large])
+            } else {
+                ImportReviewSheet(transactions: importedTransactions, currencySymbol: currencySymbol)
+            }
+        }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: importContentTypes
+        ) { result in
+            handleImportResult(result)
+        }
         .onChange(of: dynamicTypeSize) { _ in
             if income {
                 swipingOffset = capsuleWidth
@@ -1102,6 +1106,755 @@ struct TransactionView: View {
         dismiss()
     }
 
+    private var importContentTypes: [UTType] {
+        [
+            UTType(filenameExtension: "csv"),
+            UTType.pdf,
+            UTType(filenameExtension: "xls"),
+            UTType(filenameExtension: "xlsx")
+        ].compactMap { $0 }
+    }
+
+    private func handleImportResult(_ result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            processImport(url: url)
+        case .failure:
+            showImportError(message: "Couldn't import that file.")
+        }
+    }
+
+    private func processImport(url: URL) {
+        let needsAccess = url.startAccessingSecurityScopedResource()
+        defer {
+            if needsAccess {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            let result = try parseImportFile(url: url)
+            applyImport(result)
+        } catch {
+            showImportError(message: error.localizedDescription)
+        }
+    }
+
+    private func applyImport(_ result: ImportParseResult) {
+        guard !result.transactions.isEmpty else {
+            showImportError(message: "No transactions were found.")
+            return
+        }
+
+        let incomeCategory = ensureUncategorizedCategory(income: true)
+        let expenseCategory = ensureUncategorizedCategory(income: false)
+
+        result.transactions.forEach { item in
+            let category = item.income ? incomeCategory : expenseCategory
+            _ = dataController.newTransaction(
+                note: item.note,
+                category: category,
+                income: item.income,
+                amount: item.amount,
+                date: item.date,
+                repeatType: 0,
+                repeatCoefficient: 1,
+                delay: false
+            )
+        }
+
+        importedTransactions = result.transactions
+        showImportReview = true
+    }
+
+    private func showImportError(message: String) {
+        toastImage = "exclamationmark.triangle.fill"
+        toastTitle = message
+        showToast = true
+    }
+
+    private func parseImportFile(url: URL) throws -> ImportParseResult {
+        let fileExtension = url.pathExtension.lowercased()
+
+        if fileExtension == "pdf" {
+            return try parsePdfImport(url: url)
+        }
+
+        if ["csv", "xls", "xlsx"].contains(fileExtension) {
+            let data = try Data(contentsOf: url)
+            guard let text = decodeText(from: data) else {
+                throw ImportError.unreadableFile
+            }
+
+            let rows = parseDelimitedRows(from: text)
+            guard !rows.isEmpty else {
+                throw ImportError.noTransactions
+            }
+
+            if let invoice = parseInvoiceCSV(rows: rows) {
+                return ImportParseResult(transactions: [invoice], kind: .invoice)
+            }
+
+            let statementTransactions = parseStatementCSV(rows: rows)
+            guard !statementTransactions.isEmpty else {
+                throw ImportError.noTransactions
+            }
+
+            return ImportParseResult(transactions: statementTransactions, kind: .statement)
+        }
+
+        throw ImportError.unsupportedFile
+    }
+
+    private func parsePdfImport(url: URL) throws -> ImportParseResult {
+        guard let document = PDFDocument(url: url) else {
+            throw ImportError.unreadableFile
+        }
+
+        let text = (0 ..< document.pageCount)
+            .compactMap { document.page(at: $0)?.string }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !text.isEmpty else {
+            throw ImportError.unreadableFile
+        }
+
+        let statementTransactions = parseStatementPDF(text: text)
+        if statementTransactions.count >= 2 {
+            return ImportParseResult(transactions: statementTransactions, kind: .statement)
+        }
+
+        if let invoice = parseInvoicePDF(text: text) {
+            return ImportParseResult(transactions: [invoice], kind: .invoice)
+        }
+
+        throw ImportError.noTransactions
+    }
+
+    private func parseStatementCSV(rows: [[String]]) -> [ImportedTransaction] {
+        guard let header = rows.first else {
+            return []
+        }
+
+        let normalizedHeader = header.map { normalizeHeader($0) }
+        var dateIndex = index(in: normalizedHeader, matches: ["date", "posted", "transaction date"])
+        var noteIndex = index(in: normalizedHeader, matches: ["description", "merchant", "payee", "memo", "note", "details", "narrative", "name"])
+        var amountIndex = index(in: normalizedHeader, matches: ["amount", "amt", "value"])
+        var debitIndex = index(in: normalizedHeader, matches: ["debit", "withdrawal", "paid out"])
+        var creditIndex = index(in: normalizedHeader, matches: ["credit", "deposit", "paid in"])
+        let typeIndex = index(in: normalizedHeader, matches: ["type", "transaction type"])
+        let categoryIndex = index(in: normalizedHeader, matches: ["category"])
+
+        let dataRows = Array(rows.dropFirst())
+
+        if dateIndex == nil {
+            dateIndex = detectColumnIndex(in: dataRows) { parseDate(from: $0) != nil }
+        }
+
+        if amountIndex == nil && debitIndex == nil && creditIndex == nil {
+            amountIndex = detectColumnIndex(in: dataRows) { parseAmount(from: $0) != nil }
+        }
+
+        if noteIndex == nil {
+            let excluded = Set([dateIndex, amountIndex, debitIndex, creditIndex].compactMap { $0 })
+            noteIndex = detectNoteColumn(in: dataRows, excluding: excluded)
+        }
+
+        return dataRows.compactMap { row in
+            let dateValue = value(in: row, at: dateIndex)
+            let noteValue = value(in: row, at: noteIndex)
+            let typeValue = value(in: row, at: typeIndex)?.lowercased() ?? ""
+            let categoryValue = value(in: row, at: categoryIndex)?.lowercased() ?? ""
+
+            if noteValue?.lowercased().contains("opening balance") == true || categoryValue.contains("balance") {
+                return nil
+            }
+
+            guard let parsedDate = parseDate(from: dateValue) else {
+                return nil
+            }
+
+            var amount: Double?
+            var incomeFlag: Bool?
+
+            if let debitValue = value(in: row, at: debitIndex), let debitAmount = parseAmount(from: debitValue), debitAmount > 0 {
+                amount = debitAmount
+                incomeFlag = false
+            } else if let creditValue = value(in: row, at: creditIndex), let creditAmount = parseAmount(from: creditValue), creditAmount > 0 {
+                amount = creditAmount
+                incomeFlag = true
+            } else if let amountValue = value(in: row, at: amountIndex), let parsedAmount = parseAmount(from: amountValue) {
+                amount = abs(parsedAmount)
+                if parsedAmount < 0 {
+                    incomeFlag = false
+                } else if typeValue.contains("debit") || typeValue.contains("withdraw") || typeValue.contains("purchase") {
+                    incomeFlag = false
+                } else if typeValue.contains("credit") || typeValue.contains("deposit") || typeValue.contains("refund") {
+                    incomeFlag = true
+                } else {
+                    incomeFlag = parsedAmount >= 0
+                }
+            }
+
+            guard let finalAmount = amount, finalAmount > 0, let isIncome = incomeFlag else {
+                return nil
+            }
+
+            let note = noteValue?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let finalNote = (note?.isEmpty == false) ? note! : "Imported Transaction"
+
+            return ImportedTransaction(
+                note: finalNote,
+                amount: finalAmount,
+                date: parsedDate,
+                income: isIncome
+            )
+        }
+    }
+
+    private func parseInvoiceCSV(rows: [[String]]) -> ImportedTransaction? {
+        guard let header = rows.first, rows.count >= 2 else {
+            return nil
+        }
+
+        let lowerHeader = header.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        let headerText = lowerHeader.joined(separator: " ")
+        let looksLikeInvoice = headerText.contains("invoice") || headerText.contains("bill")
+
+        let dataRows = rows.dropFirst()
+        guard dataRows.count == 1 || looksLikeInvoice else {
+            return nil
+        }
+
+        guard let row = dataRows.first else {
+            return nil
+        }
+
+        let dateIndex = index(in: lowerHeader, matches: ["date", "invoice date", "bill date"])
+        let noteIndex = index(in: lowerHeader, matches: ["vendor", "from", "merchant", "payee", "description", "note", "details", "name"])
+        let amountIndex = index(in: lowerHeader, matches: ["amount", "total", "balance", "due", "amt", "value"])
+
+        let noteValue = value(in: row, at: noteIndex)
+        let dateValue = value(in: row, at: dateIndex)
+        let amountValue = value(in: row, at: amountIndex) ?? row.last
+
+        guard let rawAmountValue = amountValue, let amount = parseAmount(from: rawAmountValue) else {
+            return nil
+        }
+
+        let note = noteValue?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalNote = (note?.isEmpty == false) ? note! : "Invoice"
+        let finalDate = parseDate(from: dateValue) ?? Date.now
+
+        return ImportedTransaction(
+            note: finalNote,
+            amount: abs(amount),
+            date: finalDate,
+            income: false
+        )
+    }
+
+    private func parseStatementPDF(text: String) -> [ImportedTransaction] {
+        let lines = text
+            .split(whereSeparator: \.isNewline)
+            .map { String($0) }
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+        var transactions: [ImportedTransaction] = []
+
+        for line in lines {
+            guard let dateString = extractDateString(from: line), let date = parseDate(from: dateString) else {
+                continue
+            }
+
+            let amounts = extractAmounts(from: line)
+            guard !amounts.isEmpty else { continue }
+
+            let transactionAmount = amounts.count >= 2 ? amounts[amounts.count - 2] : amounts[0]
+            let incomeFlag = inferIncome(from: line, amount: transactionAmount)
+            let note = extractNote(from: line, dateString: dateString, amounts: amounts)
+
+            transactions.append(
+                ImportedTransaction(
+                    note: note,
+                    amount: abs(transactionAmount),
+                    date: date,
+                    income: incomeFlag
+                )
+            )
+        }
+
+        return transactions
+    }
+
+    private func parseInvoicePDF(text: String) -> ImportedTransaction? {
+        let lines = text
+            .split(whereSeparator: \.isNewline)
+            .map { String($0) }
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+        let vendor = lines.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Invoice"
+        let amount = extractLabeledAmount(from: lines, labels: [
+            "total due", "amount due", "balance due", "total", "amount"
+        ]) ?? extractAmount(from: text)
+
+        guard let finalAmount = amount else {
+            return nil
+        }
+
+        let date = parseDate(from: text) ?? Date.now
+
+        return ImportedTransaction(
+            note: vendor,
+            amount: abs(finalAmount),
+            date: date,
+            income: false
+        )
+    }
+
+    private func parseDelimitedRows(from text: String) -> [[String]] {
+        guard let delimiter = detectDelimiter(in: text) else {
+            return []
+        }
+
+        var rows: [[String]] = []
+        var currentRow: [String] = []
+        var currentField = ""
+        var inQuotes = false
+
+        var index = text.startIndex
+        while index < text.endIndex {
+            let char = text[index]
+
+            if char == "\"" {
+                let nextIndex = text.index(after: index)
+                if inQuotes && nextIndex < text.endIndex && text[nextIndex] == "\"" {
+                    currentField.append("\"")
+                    index = nextIndex
+                } else {
+                    inQuotes.toggle()
+                }
+            } else if char == delimiter && !inQuotes {
+                currentRow.append(currentField.trimmingCharacters(in: .whitespacesAndNewlines))
+                currentField = ""
+            } else if (char == "\n" || char == "\r") && !inQuotes {
+                if char == "\r" {
+                    let nextIndex = text.index(after: index)
+                    if nextIndex < text.endIndex && text[nextIndex] == "\n" {
+                        index = nextIndex
+                    }
+                }
+
+                currentRow.append(currentField.trimmingCharacters(in: .whitespacesAndNewlines))
+                currentField = ""
+
+                if currentRow.contains(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                    rows.append(currentRow)
+                }
+                currentRow = []
+            } else {
+                currentField.append(char)
+            }
+
+            index = text.index(after: index)
+        }
+
+        if !currentField.isEmpty || !currentRow.isEmpty {
+            currentRow.append(currentField.trimmingCharacters(in: .whitespacesAndNewlines))
+            if currentRow.contains(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                rows.append(currentRow)
+            }
+        }
+
+        return rows
+    }
+
+    private func detectDelimiter(in text: String) -> Character? {
+        guard let firstLine = text
+            .split(whereSeparator: \.isNewline)
+            .first
+            .map(String.init) else {
+            return nil
+        }
+
+        let candidates: [Character] = [",", "\t", ";", "|"]
+        var best: (delimiter: Character, count: Int)?
+
+        for delimiter in candidates {
+            let count = firstLine.filter { $0 == delimiter }.count
+            if count > (best?.count ?? 0) {
+                best = (delimiter, count)
+            }
+        }
+
+        return best?.count ?? 0 > 0 ? best?.delimiter : nil
+    }
+
+    private func decodeText(from data: Data) -> String? {
+        if let text = String(data: data, encoding: .utf8) {
+            return text
+        }
+        if let text = String(data: data, encoding: .utf16) {
+            return text
+        }
+        if let text = String(data: data, encoding: .isoLatin1) {
+            return text
+        }
+        return nil
+    }
+
+    private func parseAmount(from value: String) -> Double? {
+        let sanitized = value
+            .replacingOccurrences(of: ",", with: "")
+            .replacingOccurrences(of: "$", with: "")
+            .replacingOccurrences(of: "£", with: "")
+            .replacingOccurrences(of: "€", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var negative = false
+        var working = sanitized
+
+        if working.hasPrefix("(") && working.hasSuffix(")") {
+            negative = true
+            working = working.trimmingCharacters(in: CharacterSet(charactersIn: "()"))
+        }
+
+        if working.hasPrefix("-") {
+            negative = true
+            working = working.replacingOccurrences(of: "-", with: "")
+        }
+
+        guard let number = Double(working) else {
+            return nil
+        }
+
+        return negative ? -number : number
+    }
+
+    private func extractAmounts(from text: String) -> [Double] {
+        let pattern = "[-]?\\(?\\$?\\d{1,3}(?:,\\d{3})*(?:\\.\\d{2})?\\)?|\\$?\\d+(?:\\.\\d{2})?"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return []
+        }
+
+        let range = NSRange(text.startIndex..., in: text)
+        let matches = regex.matches(in: text, options: [], range: range)
+
+        return matches.compactMap { match -> Double? in
+            guard let matchRange = Range(match.range, in: text) else {
+                return nil
+            }
+            let token = String(text[matchRange])
+            if token.count == 4, let year = Double(token), year >= 1900, year <= 2100 {
+                return nil
+            }
+            return parseAmount(from: token)
+        }
+    }
+
+    private func extractAmount(from text: String) -> Double? {
+        extractAmounts(from: text).last
+    }
+
+    private func parseDate(from value: String?) -> Date? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+
+        let formats = [
+            "yyyy-MM-dd",
+            "yyyy/MM/dd",
+            "yyyy.MM.dd",
+            "MM/dd/yyyy",
+            "M/d/yyyy",
+            "MM-dd-yyyy",
+            "M-d-yyyy",
+            "dd/MM/yyyy",
+            "d/M/yyyy",
+            "dd-MM-yyyy",
+            "d-M-yyyy",
+            "d MMM yyyy",
+            "MMM d, yyyy",
+            "MMM d yyyy"
+        ]
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+
+        for format in formats {
+            formatter.dateFormat = format
+            if let date = formatter.date(from: value) {
+                return date
+            }
+        }
+
+        if let inferred = parseDateWithoutYear(from: value) {
+            return inferred
+        }
+
+        let tokens = value
+            .replacingOccurrences(of: ",", with: "")
+            .split(separator: " ")
+            .map { String($0) }
+
+        for index in tokens.indices {
+            let token = tokens[index]
+            for format in formats {
+                formatter.dateFormat = format
+                if let date = formatter.date(from: token) {
+                    return date
+                }
+            }
+
+            if index + 1 < tokens.count {
+                let combined = token + " " + tokens[index + 1]
+                for format in formats {
+                    formatter.dateFormat = format
+                    if let date = formatter.date(from: combined) {
+                        return date
+                    }
+                }
+            }
+
+            if index + 2 < tokens.count {
+                let combined = token + " " + tokens[index + 1] + " " + tokens[index + 2]
+                for format in formats {
+                    formatter.dateFormat = format
+                    if let date = formatter.date(from: combined) {
+                        return date
+                    }
+                }
+            }
+        }
+
+        return nil
+    }
+
+    private func parseDateWithoutYear(from value: String) -> Date? {
+        let parts = value
+            .split(separator: "/")
+            .map { String($0) }
+
+        guard parts.count == 2,
+              let first = Int(parts[0]),
+              let second = Int(parts[1]) else {
+            return nil
+        }
+
+        let calendar = Calendar(identifier: .gregorian)
+        let year = calendar.component(.year, from: Date.now)
+
+        let month = min(max(first, 1), 12)
+        let day = min(max(second, 1), 31)
+
+        return calendar.date(from: DateComponents(year: year, month: month, day: day))
+    }
+
+    private func inferIncome(from line: String, amount: Double) -> Bool {
+        if amount < 0 {
+            return false
+        }
+
+        let lower = line.lowercased()
+        if lower.contains("credit") || lower.contains("deposit") || lower.contains("refund") || lower.contains("interest") {
+            return true
+        }
+        if lower.contains("debit") || lower.contains("withdraw") || lower.contains("purchase") || lower.contains("payment") || lower.contains("atm") {
+            return false
+        }
+
+        return amount >= 0
+    }
+
+    private func extractNote(from line: String, date: Date, amount: Double) -> String {
+        var note = line
+        if let dateString = formatDate(date) {
+            note = note.replacingOccurrences(of: dateString, with: "")
+        }
+
+        let amountString = String(format: "%.2f", abs(amount))
+        note = note.replacingOccurrences(of: amountString, with: "")
+
+        let cleaned = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? "Imported Transaction" : cleaned
+    }
+
+    private func extractNote(from line: String, dateString: String, amounts: [Double]) -> String {
+        var note = line
+        note = note.replacingOccurrences(of: dateString, with: "")
+
+        amounts.forEach { amount in
+            let amountString = String(format: "%.2f", abs(amount))
+            note = note.replacingOccurrences(of: amountString, with: "")
+        }
+
+        let cleaned = note
+            .replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return cleaned.isEmpty ? "Imported Transaction" : cleaned
+    }
+
+    private func formatDate(_ date: Date) -> String? {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    private func extractLabeledAmount(from lines: [String], labels: [String]) -> Double? {
+        for line in lines {
+            let lower = line.lowercased()
+            if labels.contains(where: { lower.contains($0) }) {
+                let amounts = extractAmounts(from: line)
+                if let amount = amounts.last {
+                    return amount
+                }
+            }
+        }
+        return nil
+    }
+
+    private func extractDateString(from line: String) -> String? {
+        let pattern = "\\b\\d{1,2}/\\d{1,2}/\\d{2,4}\\b|\\b\\d{1,2}/\\d{1,2}\\b"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return nil
+        }
+
+        let range = NSRange(line.startIndex..., in: line)
+        guard let match = regex.firstMatch(in: line, options: [], range: range),
+              let matchRange = Range(match.range, in: line) else {
+            return nil
+        }
+
+        return String(line[matchRange])
+    }
+
+    private func index(in header: [String], matches keywords: [String]) -> Int? {
+        let normalizedKeywords = keywords.map { normalizeHeader($0) }
+        for (index, value) in header.enumerated() {
+            if normalizedKeywords.contains(where: { value.contains($0) }) {
+                return index
+            }
+        }
+        return nil
+    }
+
+    private func normalizeHeader(_ value: String) -> String {
+        let cleaned = value
+            .replacingOccurrences(of: "\u{feff}", with: "")
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let allowed = CharacterSet.alphanumerics.union(.whitespaces)
+        let filtered = cleaned.unicodeScalars.map { allowed.contains($0) ? Character($0) : " " }
+        let normalized = String(filtered)
+            .replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return normalized
+    }
+
+    private func detectColumnIndex(in rows: [[String]], predicate: (String) -> Bool) -> Int? {
+        let columnCount = rows.map { $0.count }.max() ?? 0
+        guard columnCount > 0 else { return nil }
+
+        var bestIndex: Int?
+        var bestScore = 0
+
+        for index in 0..<columnCount {
+            let score = rows.compactMap { index < $0.count ? $0[index] : nil }
+                .filter { predicate($0) }
+                .count
+
+            if score > bestScore {
+                bestScore = score
+                bestIndex = index
+            }
+        }
+
+        return bestScore > 0 ? bestIndex : nil
+    }
+
+    private func detectNoteColumn(in rows: [[String]], excluding excluded: Set<Int>) -> Int? {
+        let columnCount = rows.map { $0.count }.max() ?? 0
+        guard columnCount > 0 else { return nil }
+
+        var bestIndex: Int?
+        var bestScore = 0
+
+        for index in 0..<columnCount where !excluded.contains(index) {
+            let score = rows.compactMap { index < $0.count ? $0[index] : nil }
+                .filter { $0.rangeOfCharacter(from: .letters) != nil }
+                .count
+
+            if score > bestScore {
+                bestScore = score
+                bestIndex = index
+            }
+        }
+
+        return bestScore > 0 ? bestIndex : nil
+    }
+
+    private func value(in row: [String], at index: Int?) -> String? {
+        guard let index = index, index < row.count else {
+            return nil
+        }
+        return row[index]
+    }
+
+    private func ensureUncategorizedCategory(income: Bool) -> Category {
+        let request: NSFetchRequest<Category> = Category.fetchRequest()
+        request.fetchLimit = 1
+        request.predicate = NSPredicate(format: "income = %d AND name =[c] %@", income, "Uncategorized")
+
+        if let existing = try? moc.fetch(request).first {
+            return existing
+        }
+
+        let category = Category(context: moc)
+        category.name = "Uncategorized"
+        category.emoji = "❓"
+        category.dateCreated = Date.now
+        category.id = UUID()
+        category.income = income
+
+        if income {
+            category.colour = "IncomeGreen"
+        } else {
+            category.colour = nextExpenseColor()
+        }
+
+        category.order = nextCategoryOrder(income: income)
+        dataController.save()
+
+        return category
+    }
+
+    private func nextCategoryOrder(income: Bool) -> Int64 {
+        let request: NSFetchRequest<Category> = Category.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \Category.order, ascending: true)]
+        request.predicate = NSPredicate(format: "income = %d", income)
+
+        let results = (try? moc.fetch(request)) ?? []
+        return (results.last?.order ?? 0) + 1
+    }
+
+    private func nextExpenseColor() -> String {
+        let request: NSFetchRequest<Category> = Category.fetchRequest()
+        request.predicate = NSPredicate(format: "income = %d", false)
+        let categories = (try? moc.fetch(request)) ?? []
+        let usedColors = Set(categories.map { $0.wrappedColour })
+
+        if let available = Color.colorArray.first(where: { !usedColors.contains($0) }) {
+            return available
+        }
+
+        return Color.colorArray.first ?? "#279AF4"
+    }
+
     init(toEdit: Transaction? = nil) {
         if let transaction = toEdit {
             _note = State(initialValue: transaction.wrappedNote)
@@ -1128,6 +1881,126 @@ struct TransactionView: View {
         }
 
         toEdit = nil
+    }
+}
+
+struct ImportedTransaction: Identifiable {
+    let id = UUID()
+    let note: String
+    let amount: Double
+    let date: Date
+    let income: Bool
+}
+
+enum ImportSourceType {
+    case statement
+    case invoice
+}
+
+struct ImportParseResult {
+    let transactions: [ImportedTransaction]
+    let kind: ImportSourceType
+}
+
+enum ImportError: LocalizedError {
+    case unreadableFile
+    case unsupportedFile
+    case noTransactions
+
+    var errorDescription: String? {
+        switch self {
+        case .unreadableFile:
+            return "We couldn't read that file."
+        case .unsupportedFile:
+            return "That file type isn't supported."
+        case .noTransactions:
+            return "No transactions were found."
+        }
+    }
+}
+
+struct ImportReviewSheet: View {
+    let transactions: [ImportedTransaction]
+    let currencySymbol: String
+
+    @Environment(\.dismiss) var dismiss
+
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundColor(Color.SubtitleText)
+                        .padding(7)
+                        .background(Color.SecondaryBackground, in: Circle())
+                        .contentShape(Circle())
+                }
+
+                Spacer()
+
+                Text("Imported Transactions")
+                    .font(.system(.body, design: .rounded).weight(.semibold))
+                    .foregroundColor(Color.PrimaryText)
+
+                Spacer()
+
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Done")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundColor(Color.IncomeGreen)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.IncomeGreen.opacity(0.23), in: Capsule())
+                }
+            }
+
+            if transactions.isEmpty {
+                Text("No transactions to review.")
+                    .font(.system(.subheadline, design: .rounded).weight(.medium))
+                    .foregroundColor(Color.SubtitleText)
+            } else {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 10) {
+                        ForEach(transactions) { transaction in
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(transaction.note)
+                                        .font(.system(.body, design: .rounded).weight(.semibold))
+                                        .foregroundColor(Color.PrimaryText)
+                                        .lineLimit(1)
+
+                                    Text(dateFormatter.string(from: transaction.date))
+                                        .font(.system(.caption, design: .rounded).weight(.medium))
+                                        .foregroundColor(Color.SubtitleText)
+                                }
+
+                                Spacer()
+
+                                Text("\(currencySymbol)\(String(format: "%.2f", transaction.amount))")
+                                    .font(.system(.body, design: .rounded).weight(.semibold))
+                                    .foregroundColor(transaction.income ? Color.IncomeGreen : Color.AlertRed)
+                            }
+                            .padding(10)
+                            .background(Color.SecondaryBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.PrimaryBackground)
     }
 }
 
